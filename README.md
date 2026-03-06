@@ -40,7 +40,7 @@ npm start
 npm run dev
 ```
 
-Open **http://localhost:3000**
+Open **http://localhost:3000** or you can see how it looks from here **https://neuro-craft.vercel.app/**
 
 ---
 
