@@ -1,0 +1,9 @@
+{
+  "outputDirectory": "client",
+  "rewrites": [
+    { "source": "/",          "destination": "/index.html"     },
+    { "source": "/dashboard", "destination": "/dashboard.html" },
+    { "source": "/game",      "destination": "/game.html"      },
+    { "source": "/studio",    "destination": "/studio.html"    }
+  ]
+}

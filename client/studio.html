@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Asset Studio — NeuroCraft</title>
+<script type="importmap">
+{
+  "imports": {
+    "three":                          "https://cdn.jsdelivr.net/npm/three@0.162.0/build/three.module.js",
+    "three/addons/":                  "https://cdn.jsdelivr.net/npm/three@0.162.0/examples/jsm/"
+  }
+}
+</script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin:0; padding:0; }
+
+  body {
+    font-family: 'Segoe UI', sans-serif;
+    background: #0e0e1a;
+    color: #e0e0f0;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* ── Header ── */
+  header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 16px;
+    background: #16162a;
+    border-bottom: 1px solid #2a2a50;
+    flex-shrink: 0;
+    flex-wrap: wrap;
+  }
+  header .brand { font-weight: 700; font-size: 1.1rem; color: #a78bfa; }
+  header .sep   { color: #444; }
+  header .title { color: #c4b5fd; font-size: 0.95rem; }
+  header .spacer{ flex: 1; }
+  .btn {
+    padding: 6px 14px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 600;
+    transition: opacity .15s;
+  }
+  .btn:hover { opacity: .82; }
+  .btn-ghost  { background: transparent; border: 1px solid #4a4a80; color: #a0a0c0; }
+  .btn-export { background: #2a7a4a; color: #fff; }
+  .btn-submit { background: #5b21b6; color: #fff; }
+
+  /* ── Layout ── */
+  .layout {
+    flex: 1;
+    display: flex;
+    overflow: hidden;
+  }
+
+  /* ── Sidebars ── */
+  .sidebar {
+    background: #13132a;
+    border-right: 1px solid #2a2a48;
+    overflow-y: auto;
+    padding: 12px 10px;
+    flex-shrink: 0;
+  }
+  .sidebar-r { border-right: none; border-left: 1px solid #2a2a48; }
+  .sidebar-l { width: 210px; }
+  .sidebar-r { width: 196px; }
+
+  .sec-title {
+    font-size: .72rem;
+    letter-spacing: .08em;
+    color: #6060a0;
+    text-transform: uppercase;
+    margin: 10px 0 6px;
+  }
+  .sec-title:first-child { margin-top: 0; }
+
+  /* Preset buttons */
+  .preset-btn {
+    display: block;
+    width: 100%;
+    padding: 6px 10px;
+    margin-bottom: 4px;
+    background: #1e1e3a;
+    border: 1px solid #303060;
+    border-radius: 6px;
+    color: #c0c0e0;
+    cursor: pointer;
+    font-size: 0.82rem;
+    text-align: left;
+    transition: background .15s, border-color .15s;
+  }
+  .preset-btn:hover, .preset-btn.active {
+    background: #2a2a55;
+    border-color: #7c5fd4;
+    color: #e0d0ff;
+  }
+
+  /* Tool buttons */
+  .tool-row { display: flex; gap: 6px; margin-bottom: 4px; }
+  .tool-btn {
+    flex: 1;
+    padding: 6px 0;
+    border-radius: 6px;
+    border: 1px solid #303060;
+    background: #1e1e3a;
+    color: #a0a0c0;
+    cursor: pointer;
+    font-size: 0.82rem;
+    font-weight: 600;
+    transition: all .15s;
+  }
+  .tool-btn.active  { background: #3a1a6e; border-color: #8b5fd4; color: #e0c0ff; }
+  .tool-btn:hover:not(.active) { background: #252545; }
+
+  /* Grid size inputs */
+  .grid-row { display: flex; align-items: center; gap: 4px; margin-bottom: 6px; }
+  .grid-row label { font-size: .75rem; color: #7070a0; min-width: 14px; }
+  .grid-inp {
+    width: 44px;
+    background: #1e1e3a;
+    border: 1px solid #303060;
+    border-radius: 4px;
+    color: #c0c0e0;
+    padding: 3px 6px;
+    font-size: .82rem;
+    text-align: center;
+  }
+  .resize-btn {
+    width: 100%;
+    padding: 5px 0;
+    background: #1e3a55;
+    border: 1px solid #1e4a70;
+    border-radius: 6px;
+    color: #80c8ff;
+    cursor: pointer;
+    font-size: .8rem;
+    font-weight: 600;
+    margin-bottom: 4px;
+    transition: background .15s;
+  }
+  .resize-btn:hover { background: #1e4a6a; }
+
+  /* Asset name */
+  .name-inp {
+    width: 100%;
+    background: #1e1e3a;
+    border: 1px solid #303060;
+    border-radius: 6px;
+    color: #e0e0ff;
+    padding: 5px 8px;
+    font-size: .84rem;
+  }
+
+  /* Voxel count */
+  .voxel-info {
+    font-size: .74rem;
+    color: #5050a0;
+    margin-top: 8px;
+  }
+  #voxelCount { color: #9b86e0; font-weight: 700; }
+
+  /* ── Canvas area ── */
+  .canvas-area {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    overflow: hidden;
+  }
+  #studio-canvas {
+    flex: 1;
+    display: block;
+    width: 100%;
+    cursor: crosshair;
+  }
+  .hint-bar {
+    background: #12122a;
+    border-top: 1px solid #2a2a48;
+    padding: 4px 14px;
+    font-size: .75rem;
+    color: #4a4a80;
+    flex-shrink: 0;
+  }
+  .hint-bar span { color: #7070b0; }
+
+  /* ── Palette (right sidebar) ── */
+  .palette-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 4px;
+    margin-top: 4px;
+  }
+  .pal-swatch {
+    aspect-ratio: 1;
+    border-radius: 4px;
+    border: 2px solid transparent;
+    cursor: pointer;
+    transition: transform .1s, border-color .12s;
+    position: relative;
+  }
+  .pal-swatch:hover    { transform: scale(1.15); z-index: 1; }
+  .pal-swatch.active   { border-color: #fff; transform: scale(1.12); z-index: 1; }
+  .pal-swatch.air-swatch {
+    background: repeating-conic-gradient(#20203a 0% 25%, #2a2a4a 0% 50%) 0 0 / 8px 8px;
+    border-color: #303060;
+  }
+  .pal-label {
+    font-size: .67rem;
+    color: #7070a0;
+    text-align: center;
+    margin-top: 2px;
+    grid-column: span 4;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  /* selected label */
+  #selectedLabel {
+    font-size: .78rem;
+    color: #c4b5fd;
+    margin-top: 6px;
+    min-height: 1.1em;
+    font-weight: 600;
+  }
+
+  /* ── Submit modal ── */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,.72);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: #16162e;
+    border: 1px solid #3a3a70;
+    border-radius: 12px;
+    padding: 24px 28px;
+    max-width: 520px;
+    width: 94%;
+    max-height: 92vh;
+    overflow-y: auto;
+  }
+  .modal h2 { font-size: 1.1rem; color: #c4b5fd; margin-bottom: 14px; }
+  .modal label { font-size: .8rem; color: #6060a0; display: block; margin: 10px 0 4px; }
+  .modal textarea {
+    width: 100%;
+    background: #0e0e1c;
+    border: 1px solid #2a2a50;
+    border-radius: 6px;
+    color: #a0a0d0;
+    font-family: monospace;
+    font-size: .74rem;
+    padding: 8px;
+    resize: vertical;
+    min-height: 120px;
+  }
+  .modal input[type=url] {
+    width: 100%;
+    background: #1e1e3a;
+    border: 1px solid #303060;
+    border-radius: 6px;
+    color: #e0e0ff;
+    padding: 6px 10px;
+    font-size: .84rem;
+    margin-bottom: 6px;
+  }
+  .modal-note  { font-size: .74rem; color: #50507a; margin: 4px 0 10px; }
+  .modal-btns  { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
+  .modal-close { position: absolute; top: 8px; right: 12px; background: none; border: none; color: #6060a0; font-size: 1.4rem; cursor: pointer; }
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<header>
+  <span class="brand">⚡ NeuroCraft</span>
+  <span class="sep">/</span>
+  <span class="title">🎨 Asset Studio</span>
+  <div class="spacer"></div>
+  <a href="/dashboard.html" class="btn btn-ghost">← Dashboard</a>
+  <button class="btn btn-export" id="btnExport">⬇ Export JSON</button>
+  <button class="btn btn-submit" id="btnSubmit">🚀 Submit Design</button>
+</header>
+
+<!-- Main layout -->
+<div class="layout">
+
+  <!-- Left sidebar -->
+  <aside class="sidebar sidebar-l">
+    <div class="sec-title">Asset Name</div>
+    <input class="name-inp" id="assetName" type="text" value="My Design" maxlength="60" placeholder="Name your creation…"/>
+
+    <div class="sec-title">Tools</div>
+    <div class="tool-row">
+      <button class="tool-btn active" id="toolPaint" data-tool="paint">🖌 Paint</button>
+      <button class="tool-btn"        id="toolErase" data-tool="erase">🗑 Erase</button>
+    </div>
+
+    <div class="sec-title">Grid Size</div>
+    <div class="grid-row">
+      <label>W</label><input class="grid-inp" id="gW" type="number" min="1" max="24" value="5"/>
+      <label>H</label><input class="grid-inp" id="gH" type="number" min="1" max="24" value="9"/>
+      <label>D</label><input class="grid-inp" id="gD" type="number" min="1" max="24" value="5"/>
+    </div>
+    <button class="resize-btn" id="btnResize">↔ Resize Grid</button>
+
+    <div class="sec-title">Presets</div>
+    <div id="presetList"></div>
+
+    <div class="voxel-info">Voxels: <span id="voxelCount">0</span></div>
+  </aside>
+
+  <!-- Canvas -->
+  <div class="canvas-area">
+    <canvas id="studio-canvas"></canvas>
+    <div class="hint-bar">
+      <span>Left-click</span> paint on face &nbsp;|&nbsp;
+      <span>Right-click</span> erase &nbsp;|&nbsp;
+      <span>Middle-drag / scroll</span> orbit &amp; zoom &nbsp;|&nbsp;
+      <span>Right-drag</span> pan
+    </div>
+  </div>
+
+  <!-- Right sidebar — palette -->
+  <aside class="sidebar sidebar-r">
+    <div class="sec-title">Block Palette</div>
+    <div id="selectedLabel">Wood Log</div>
+    <div class="palette-grid" id="paletteGrid"></div>
+  </aside>
+
+</div>
+
+<!-- Submit modal -->
+<div class="modal-overlay" id="submitModal">
+  <div class="modal" style="position:relative">
+    <button class="modal-close" id="modalClose">×</button>
+    <h2>🚀 Submit Your Design</h2>
+
+    <label>Preview JSON (first 1 200 chars)</label>
+    <textarea id="previewJson" readonly></textarea>
+
+    <label>Your GitHub repo URL</label>
+    <input type="url" id="repoUrl" placeholder="https://github.com/yourname/neurocraft" />
+    <div class="modal-note">The editor opens a pre-filled GitHub Issue in that repo so maintainers can review your asset.</div>
+
+    <div class="modal-btns">
+      <button class="btn btn-ghost" id="btnCopyJson">📋 Copy JSON</button>
+      <button class="btn btn-submit" id="btnOpenIssue">Open GitHub Issue →</button>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { PALETTE, PRESETS, VoxelStudio } from '/js/studio.js';
+
+const canvas = document.getElementById('studio-canvas');
+const studio = new VoxelStudio(canvas);
+
+// ── Resize canvas on layout change ──────────────────────────────────────────
+const ro = new ResizeObserver(() => studio.resize());
+ro.observe(canvas.parentElement);
+
+// ── Preset buttons ───────────────────────────────────────────────────────────
+const presetList = document.getElementById('presetList');
+PRESETS.forEach(p => {
+  const btn = document.createElement('button');
+  btn.className   = 'preset-btn';
+  btn.textContent = p.label;
+  btn.dataset.pid = p.id;
+  btn.onclick = () => {
+    document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    studio.loadPreset(p.id);
+    syncGridInputs();
+    syncName();
+    syncVoxelCount();
+  };
+  presetList.appendChild(btn);
+});
+// activate first
+presetList.firstChild?.classList.add('active');
+
+function syncGridInputs() {
+  document.getElementById('gW').value = studio.grid.w;
+  document.getElementById('gH').value = studio.grid.h;
+  document.getElementById('gD').value = studio.grid.d;
+}
+function syncName() {
+  document.getElementById('assetName').value = studio.grid.name;
+}
+function syncVoxelCount() {
+  document.getElementById('voxelCount').textContent = studio.voxelCount;
+}
+
+// Update voxel count whenever user edits
+const origSetBlock = studio.setBlock.bind(studio);
+studio.setBlock = function(x,y,z,id) { origSetBlock(x,y,z,id); syncVoxelCount(); };
+
+// ── Palette ───────────────────────────────────────────────────────────────────
+const paletteGrid  = document.getElementById('paletteGrid');
+const selectedLabel = document.getElementById('selectedLabel');
+
+PALETTE.forEach(p => {
+  const sw = document.createElement('div');
+  sw.className  = 'pal-swatch' + (p.id === 0 ? ' air-swatch' : '');
+  sw.title      = p.label;
+  sw.dataset.id = p.id;
+  if (p.color) sw.style.background = p.color;
+  if (p.alpha)  sw.style.opacity   = 0.55 + p.alpha * 0.45;
+  sw.onclick = () => {
+    studio.selectedId = p.id;
+    document.querySelectorAll('.pal-swatch').forEach(s => s.classList.remove('active'));
+    sw.classList.add('active');
+    selectedLabel.textContent = p.label;
+    if (p.id !== 0) { studio.tool = 'paint'; syncTools(); }
+    else            { studio.tool = 'erase'; syncTools(); }
+  };
+  paletteGrid.appendChild(sw);
+});
+// default selected
+paletteGrid.querySelector('[data-id="6"]')?.classList.add('active');
+
+// ── Tool buttons ──────────────────────────────────────────────────────────────
+document.querySelectorAll('.tool-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    studio.tool = btn.dataset.tool;
+    syncTools();
+  });
+});
+function syncTools() {
+  document.querySelectorAll('.tool-btn').forEach(b => b.classList.toggle('active', b.dataset.tool === studio.tool));
+}
+
+// ── Resize grid ───────────────────────────────────────────────────────────────
+document.getElementById('btnResize').addEventListener('click', () => {
+  const w = Math.max(1,Math.min(24, parseInt(document.getElementById('gW').value)||5));
+  const h = Math.max(1,Math.min(24, parseInt(document.getElementById('gH').value)||9));
+  const d = Math.max(1,Math.min(24, parseInt(document.getElementById('gD').value)||5));
+  studio.resizeGrid(w, h, d);
+  syncVoxelCount();
+});
+
+// Sync name input → grid
+document.getElementById('assetName').addEventListener('input', e => {
+  if (studio.grid) studio.grid.name = e.target.value.trim() || 'Custom';
+});
+
+// ── Export JSON ───────────────────────────────────────────────────────────────
+document.getElementById('btnExport').addEventListener('click', () => {
+  const json = studio.exportJSON();
+  const blob = new Blob([json], { type: 'application/json' });
+  const a    = Object.assign(document.createElement('a'), {
+    href:     URL.createObjectURL(blob),
+    download: (studio.grid?.name || 'asset').replace(/\s+/g,'_') + '.json',
+  });
+  a.click();
+  URL.revokeObjectURL(a.href);
+});
+
+// ── Submit modal ──────────────────────────────────────────────────────────────
+const modal      = document.getElementById('submitModal');
+const repoInput  = document.getElementById('repoUrl');
+const previewEl  = document.getElementById('previewJson');
+
+document.getElementById('btnSubmit').addEventListener('click', () => {
+  repoInput.value   = localStorage.getItem('nc_studio_repo') || '';
+  const json        = studio.exportJSON();
+  previewEl.value   = json.length > 1200 ? json.slice(0, 1200) + '\n…(truncated)' : json;
+  modal.classList.add('open');
+});
+document.getElementById('modalClose').addEventListener('click', () => modal.classList.remove('open'));
+modal.addEventListener('click', e => { if (e.target === modal) modal.classList.remove('open'); });
+
+document.getElementById('btnCopyJson').addEventListener('click', () => {
+  navigator.clipboard.writeText(studio.exportJSON()).then(() => {
+    const btn = document.getElementById('btnCopyJson');
+    btn.textContent = '✅ Copied!';
+    setTimeout(() => btn.textContent = '📋 Copy JSON', 1800);
+  });
+});
+
+document.getElementById('btnOpenIssue').addEventListener('click', () => {
+  const repo = repoInput.value.trim().replace(/\/+$/, '');
+  if (!repo.startsWith('https://github.com/')) {
+    alert('Please enter a valid GitHub repo URL (https://github.com/owner/repo)');
+    return;
+  }
+  localStorage.setItem('nc_studio_repo', repo);
+
+  const name   = studio.grid?.name || 'Custom';
+  const { w, h, d } = studio.grid;
+  const body   =
+    `## Asset Submission\n\n**Name:** ${name}\n**Grid:** ${w}×${h}×${d}\n**Voxels:** ${studio.voxelCount}\n\n` +
+    `<details><summary>JSON data</summary>\n\n\`\`\`json\n${studio.exportJSON()}\n\`\`\`\n\n</details>\n\n` +
+    `_Submitted via NeuroCraft Asset Studio_`;
+
+  const url = `${repo}/issues/new?` + new URLSearchParams({
+    title:  `Asset Design: ${name}`,
+    body,
+    labels: 'asset-contribution',
+  });
+  window.open(url, '_blank', 'noopener,noreferrer');
+});
+
+// initial sync
+syncGridInputs();
+syncVoxelCount();
+</script>
+</body>
+</html>

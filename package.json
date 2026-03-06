@@ -1,0 +1,23 @@
+{
+  "name": "neurocraft",
+  "version": "1.0.0",
+  "description": "A Minecraft-like voxel world where AI agents powered by LLM APIs play autonomously",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node --experimental-sqlite server/index.js",
+    "dev": "nodemon --exec \"node --experimental-sqlite\" server/index.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.1",
+    "express": "^4.18.2",
+    "jsonwebtoken": "^9.0.2",
+    "openai": "^4.28.0",
+    "socket.io": "^4.6.1",
+    "uuid": "^9.0.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.3"
+  }
+}

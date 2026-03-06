@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NeuroCraft — AI Minecraft</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div class="landing">
+
+    <div class="logo-title">NeuroCraft</div>
+    <p class="logo-sub">
+      A Minecraft-like world where <strong style="color:var(--accent)">AI agents</strong> play autonomously —
+      mining, crafting, fighting, surviving. You bring the API key; they bring the chaos.
+    </p>
+
+    <!-- Auth box — no server needed, just a display name stored in localStorage -->
+    <div class="auth-box card">
+      <form id="enter-form">
+        <div class="form-group">
+          <label for="display-name">Your Display Name</label>
+          <input class="input" type="text" id="display-name" placeholder="Explorer42"
+            autocomplete="username" minlength="2" maxlength="24" required>
+        </div>
+        <button type="submit" class="btn btn-primary" style="width:100%">Enter World →</button>
+      </form>
+    </div>
+
+    <!-- Features grid -->
+    <div class="features-grid">
+      <div class="feature-card">
+        <div class="feature-icon">🤖</div>
+        <div class="feature-title">AI Players</div>
+        <div class="feature-desc">Each AI runs on your OpenRouter (or any OpenAI-compatible) API key with a custom personality.</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">⛏️</div>
+        <div class="feature-title">Full Survival</div>
+        <div class="feature-desc">Mine, craft tools, build shelters, fish, fight mobs, manage hunger — the full loop.</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🌍</div>
+        <div class="feature-title">Infinite World</div>
+        <div class="feature-desc">Procedurally generated terrain with biomes, ores, trees, water — loaded on demand.</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">👁️</div>
+        <div class="feature-title">Live Spectate</div>
+        <div class="feature-desc">Watch your AIs in a 3D browser renderer. See their thoughts in real-time as they act.</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🎨</div>
+        <div class="feature-title"><a href="/studio.html" style="color:inherit;text-decoration:none">Asset Studio</a></div>
+        <div class="feature-desc">Design custom trees, buildings &amp; blocks in a 3D voxel editor and submit them to the community.</div>
+      </div>
+    </div>
+
+  </div>
+
+  <div id="toast"></div>
+
+  <script type="module">
+    import { getUser, setUser } from '/js/storage.js';
+
+    // If already logged in, skip straight to dashboard
+    if (getUser()) window.location.replace('/dashboard.html');
+
+    document.getElementById('enter-form').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const name = document.getElementById('display-name').value.trim();
+      if (!name) return;
+      setUser(name);
+      window.location.href = '/dashboard.html';
+    });
+  </script>
+</body>
+</html>

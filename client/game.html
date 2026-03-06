@@ -1,0 +1,231 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NeuroCraft — Live World</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    html, body { height: 100%; overflow: hidden; }
+  </style>
+  <!-- Three.js via importmap -->
+  <script type="importmap">
+  {
+    "imports": {
+      "three":          "https://cdn.jsdelivr.net/npm/three@0.162.0/build/three.module.js",
+      "three/addons/":  "https://cdn.jsdelivr.net/npm/three@0.162.0/examples/jsm/"
+    }
+  }
+  </script>
+</head>
+<body>
+  <div class="game-layout">
+    <canvas id="game-canvas"></canvas>
+
+    <aside class="game-panel">
+      <div class="game-panel-top">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <span class="time-label" id="time-label"> Day 1</span>
+          <a href="/dashboard.html" class="btn btn-secondary" style="font-size:0.75rem;padding:0.3rem 0.6rem"> Dashboard</a>
+        </div>
+        <div id="world-info" style="margin-top:0.4rem">Players: 0 &nbsp;|&nbsp; Mobs: 0</div>
+      </div>
+
+      <div style="padding:0.5rem 0.75rem;border-bottom:1px solid var(--border);font-size:0.75rem;color:var(--mute)">
+        CLICK a player to follow their camera
+      </div>
+
+      <div class="players-list" id="players-list">
+        <div style="padding:1rem;color:var(--mute);font-size:0.8rem">Loading world</div>
+      </div>
+
+      <div style="padding:0.4rem 0.6rem;border-top:1px solid var(--border);font-size:0.72rem;color:var(--mute);font-weight:700">
+        ACTION LOG
+      </div>
+      <div class="action-log" id="action-log"></div>
+    </aside>
+  </div>
+
+  <div id="status-bar" style="
+    position:fixed;bottom:0;left:0;
+    width:calc(100% - 300px);
+    display:flex;align-items:center;gap:1.5rem;
+    padding:0.35rem 1rem;
+    background:rgba(10,10,14,0.85);
+    backdrop-filter:blur(4px);
+    border-top:1px solid var(--border);
+    font-size:0.73rem;font-family:var(--font-mono);
+    color:var(--mute);z-index:50;">
+    <span> NeuroCraft</span>
+    <span id="sb-players">Players: –</span>
+    <span id="sb-mobs">Mobs: –</span>
+    <span id="sb-tick">Tick: –</span>
+    <span id="sb-status" style="margin-left:auto;color:var(--accent)">Generating world</span>
+  </div>
+
+  <div id="toast"></div>
+
+  <script type="module">
+    import { World }        from '/js/world.js';
+    import { GameEngine }   from '/js/gameEngine.js';
+    import { GameRenderer } from '/js/gameRenderer.js';
+    import { getUser, getPlayers, getWorldSeed, setWorldSeed, savePlayers } from '/js/storage.js';
+
+    if (!getUser()) { window.location.replace('/index.html'); }
+
+    //  Canvas sizing 
+    const canvas = document.getElementById('game-canvas');
+    function resizeCanvas() {
+      canvas.style.width  = (window.innerWidth - 300) + 'px';
+      canvas.style.height = window.innerHeight + 'px';
+    }
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
+
+    //  World seed (persist across sessions) 
+    let seed = getWorldSeed();
+    if (!seed) { seed = Math.floor(Math.random() * 2 ** 31); setWorldSeed(seed); }
+    const world = new World(seed);
+
+    //  Renderer 
+    const renderer = new GameRenderer(canvas);
+
+    //  Engine 
+    const engine = new GameEngine({
+      onBlockChange(x, y, z, type) {
+        renderer.applyBlockChange(x, y, z, type);
+        // Rebuild the world's internal chunk data too
+        world.setBlock(x, y, z, type);
+      },
+      onPlayerAction(ev) { appendLog(ev); },
+      onGameState(state) {
+        const dayN = Math.floor(state.tick / state.dayLength) + 1;
+        document.getElementById('time-label').textContent =
+          (state.isNight ? ' Night ' : ' Day ') + dayN;
+        document.getElementById('world-info').textContent =
+          `Players: ${state.players.length} | Mobs: ${mobCount}`;
+        document.getElementById('sb-players').textContent = `Players: ${state.players.length}`;
+        document.getElementById('sb-tick').textContent    = `Tick: ${state.tick}`;
+        renderer.updatePlayers(state.players);
+        renderPlayerList(state.players);
+      },
+      onMobPositions(mobs) {
+        mobCount = mobs.length;
+        document.getElementById('sb-mobs').textContent    = `Mobs: ${mobCount}`;
+        document.getElementById('world-info').textContent =
+          `Players: ${engine.getPlayerCount()} | Mobs: ${mobCount}`;
+        renderer.updateMobs(mobs);
+      },
+      onChat(ev) { appendChat(ev); },
+      onSaveState(playerStates) { savePlayers(playerStates); },
+    });
+
+    engine.init(world);
+
+    //  Initial chunk load 
+    const VIEW = 3;
+    function loadChunksAround(camX, camZ) {
+      const cx0 = Math.floor(camX / 16);
+      const cz0 = Math.floor(camZ / 16);
+      for (let dz = -VIEW; dz <= VIEW; dz++) {
+        for (let dx = -VIEW; dx <= VIEW; dx++) {
+          const cx = cx0 + dx, cz = cz0 + dz;
+          const key = `${cx},${cz}`;
+          if (!renderer.chunkData.has(key)) {
+            const data = world.getChunk(cx, cz);
+            renderer.receiveChunk(cx, cz, data);
+          }
+        }
+      }
+    }
+    loadChunksAround(0, 0);
+    document.getElementById('sb-status').textContent = ' Running';
+
+    // Load players from localStorage and add to engine
+    const savedPlayers = getPlayers();
+    for (const p of savedPlayers) {
+      engine.addPlayer(p);
+    }
+
+    // Start engine after initial chunks are ready
+    engine.start();
+
+    // Lazy-load more chunks as the camera moves
+    setInterval(() => {
+      const cam = renderer.camera;
+      loadChunksAround(cam.position.x, cam.position.z);
+    }, 3000);
+
+    //  Follow a specific player if ?follow=id 
+    const params = new URLSearchParams(window.location.search);
+    let followingId = params.get('follow') ? Number(params.get('follow')) : null;
+    if (followingId) renderer.followPlayer(followingId);
+
+    let mobCount = 0;
+
+    //  Player list sidebar 
+    function esc(s) {
+      return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    function renderPlayerList(players) {
+      const list = document.getElementById('players-list');
+      if (!players.length) {
+        list.innerHTML = `<div style="padding:1rem;color:var(--mute);font-size:0.8rem">No AI players active.<br><a href="/dashboard.html" style="color:var(--accent)">Add one in Dashboard </a></div>`;
+        return;
+      }
+      list.innerHTML = players.map(p => `
+        <div class="player-mini ${followingId === p.id ? 'following' : ''}"
+             data-pid="${p.id}" style="cursor:pointer">
+          <div class="pmini-name">${esc(p.name)}</div>
+          <div class="pmini-stats">
+            <span> ${(p.health ?? 20).toFixed(0)}</span>
+            <span> ${(p.hunger ?? 20).toFixed(0)}</span>
+            <span> ${Math.floor(p.x??0)},${Math.floor(p.y??0)},${Math.floor(p.z??0)}</span>
+          </div>
+          <div class="pmini-thought">${esc(p.lastThought || 'thinking')}</div>
+        </div>
+      `).join('');
+      document.querySelectorAll('.player-mini[data-pid]').forEach(el => {
+        el.addEventListener('click', () => {
+          followingId = Number(el.dataset.pid);
+          renderer.followPlayer(followingId);
+          document.querySelectorAll('.player-mini').forEach(e => e.classList.remove('following'));
+          el.classList.add('following');
+        });
+      });
+    }
+
+    //  Action log 
+    const MAX_LOG = 60;
+    const logEntries = [];
+
+    function appendLog({ playerName, action, thought, result }) {
+      logEntries.push({ type:'action', playerName, action, thought, result });
+      if (logEntries.length > MAX_LOG) logEntries.shift();
+      flushLog();
+    }
+
+    function appendChat({ from, message }) {
+      logEntries.push({ type:'chat', from, message });
+      if (logEntries.length > MAX_LOG) logEntries.shift();
+      flushLog();
+    }
+
+    function flushLog() {
+      const el = document.getElementById('action-log');
+      el.innerHTML = logEntries.slice().reverse().map(e => {
+        if (e.type === 'chat') {
+          return `<div class="log-entry"><span class="who">${esc(e.from)}</span>: <em style="color:#ccc">${esc(e.message)}</em></div>`;
+        }
+        return `<div class="log-entry">
+          <span class="who">${esc(e.playerName)}</span>
+          <span class="action-tag">${esc(e.action)}</span>
+          <span style="color:var(--mute);font-style:italic">${esc(e.thought || '')}</span>
+          <div style="color:#aaa;font-size:0.68rem;margin-top:1px">${esc(e.result || '')}</div>
+        </div>`;
+      }).join('');
+    }
+  </script>
+</body>
+</html>
